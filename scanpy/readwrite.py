@@ -17,10 +17,11 @@ from . import logging as logg
 
 # .gz and .bz2 suffixes are also allowed for text formats
 text_exts = {'csv',
-             'tsv', 'tab', 'data', 'txt'} # these four are all equivalent
+             'mtx',
+             'tsv', 'tab', 'data', 'txt'}  # these four are all equivalent
 avail_exts = {'anndata', 'xlsx',
               'h5', 'h5ad',
-              'soft.gz', 'mtx', 'loom'} | text_exts
+              'soft.gz', 'loom'} | text_exts
 """Available file formats for reading data. """
 
 
@@ -137,7 +138,7 @@ def read_10x_h5(filename, genome='mm10'):
             raise Exception('File is missing one or more required datasets.')
 
 
-def read_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
+def read_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False, gex_only=True):
     """Read 10x-Genomics-formatted mtx directory.
 
     Parameters
@@ -152,11 +153,29 @@ def read_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
         '-2' etc. or not.
     cache : `bool`, optional (default: `False`)
         If `False`, read from source, if `True`, read from fast 'h5ad' cache.
+    gex_only : `bool`, optional (default: `True`)
+        Only keep 'Gene Expression' data and ignore other feature types,
+        e.g. 'Antibody Capture', 'CRISPR Guide Capture', or 'Custom'
 
     Returns
     -------
     An :class:`~anndata.AnnData`.
     """
+    path = str(path)
+    if os.path.exists(path + 'genes.tsv'):
+        return read_legacy_10x_mtx(path, var_names=var_names,
+                                   make_unique=make_unique, cache=cache)
+    else:
+        ret = read_v3_10x_mtx(path, var_names=var_names,
+                              make_unique=make_unique, cache=cache)
+        if not gex_only:
+            return ret
+        else:
+            gex_rows = list(map(lambda x: x == 'Gene Expression', ret.var['feature_types']))
+            return ret[:, gex_rows]
+
+
+def read_legacy_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
     adata = read(path + 'matrix.mtx', cache=cache).T  # transpose the data
     genes = pd.read_csv(path + 'genes.tsv', header=None, sep='\t')
     if var_names == 'gene_symbols':
@@ -172,7 +191,26 @@ def read_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
         raise ValueError('`var_names` needs to be \'gene_symbols\' or \'gene_ids\'')
     adata.obs_names = pd.read_csv(path + 'barcodes.tsv', header=None)[0]
     return adata
-        
+
+
+def read_v3_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
+    adata = read(path + 'matrix.mtx.gz', cache=cache).T  # transpose the data
+    genes = pd.read_csv(path + 'features.tsv.gz', header=None, sep='\t')
+    if var_names == 'gene_symbols':
+        var_names = genes[1]
+        if make_unique:
+            var_names = anndata.utils.make_index_unique(pd.Index(var_names))
+        adata.var_names = var_names
+        adata.var['gene_ids'] = genes[0].values
+    elif var_names == 'gene_ids':
+        adata.var_names = genes[0]
+        adata.var['gene_symbols'] = genes[1].values
+    else:
+        raise ValueError('`var_names` needs to be \'gene_symbols\' or \'gene_ids\'')
+    adata.var['feature_types'] = genes[2].values
+    adata.obs_names = pd.read_csv(path + 'barcodes.tsv.gz', header=None)[0]
+    return adata
+
 
 def write(filename, adata, ext=None, compression='gzip', compression_opts=None):
     """Write :class:`~anndata.AnnData` objects to file.
