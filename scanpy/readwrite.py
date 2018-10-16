@@ -17,10 +17,9 @@ from . import logging as logg
 
 # .gz and .bz2 suffixes are also allowed for text formats
 text_exts = {'csv',
-             'mtx',
              'tsv', 'tab', 'data', 'txt'}  # these four are all equivalent
 avail_exts = {'anndata', 'xlsx',
-              'h5', 'h5ad',
+              'h5', 'h5ad', 'mtx', 'mtx.gz',
               'soft.gz', 'loom'} | text_exts
 """Available file formats for reading data. """
 
@@ -374,7 +373,7 @@ def _read(filename, backed=False, sheet=None, ext=None, delimiter=None,
                     'Provide `sheet` parameter when reading \'.xlsx\' files.')
             else:
                 adata = read_excel(filename, sheet)
-        elif ext == 'mtx':
+        elif ext in {'mtx', 'mtx.gz'}:
             adata = read_mtx(filename)
         elif ext == 'csv':
             adata = read_csv(filename, first_column_names=first_column_names)
@@ -590,6 +589,8 @@ def is_valid_filename(filename, return_ext=False):
         return ext[-1][1:] if return_ext else True
     elif ''.join(ext) == '.soft.gz':
         return 'soft.gz' if return_ext else True
+    elif ''.join(ext) == '.mtx.gz':
+        return 'mtx.gz' if return_ext else True
     else:
         if return_ext:
             raise ValueError('"{}" does not end on a valid extension.\n'
