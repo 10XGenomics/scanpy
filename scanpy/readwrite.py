@@ -88,7 +88,7 @@ def read(filename, backed=False, sheet=None, ext=None, delimiter=None,
     return read_h5ad(filename, backed=backed)
 
 
-def read_10x_h5(filename, genome='mm10'):
+def read_10x_h5(filename, genome='mm10', gex_only=True):
     """Read 10x-Genomics-formatted hdf5 file.
 
     Parameters
@@ -97,6 +97,9 @@ def read_10x_h5(filename, genome='mm10'):
         Filename.
     genome : :class:`str`, optional (default: ``'mm10'``)
         Genome group in hdf5 file.
+    gex_only : :class:`bool`, optional (default: ``True``)
+        Only keep 'Gene Expression' data and ignore other feature types,
+        e.g. 'Antibody Capture', 'CRISPR Guide Capture', or 'Custom'
 
     Returns
     -------
@@ -105,8 +108,26 @@ def read_10x_h5(filename, genome='mm10'):
         barcode and variables/genes by gene name. The data matrix is stored in
         `adata.X`, cell names in `adata.obs_names` and gene names in
         `adata.var_names`. The gene IDs are stored in `adata.var['gene_ids']`.
+        The feature types are stored in `adata.var['feature_types']`
     """
     logg.info('reading', filename, r=True, end=' ')
+    import tables
+    with tables.open_file(str(filename), 'r') as f:
+        if f.__contains__('/matrix'):
+            adata = read_v3_10x_h5(filename)
+            if not gex_only:
+                return adata
+            else:
+                gex_rows = list(map(lambda x: x == 'Gene Expression', adata.var['feature_types']))
+                return adata[:, gex_rows]
+        else:
+            return read_legacy_10x_h5(filename, genome=genome)
+
+
+def read_legacy_10x_h5(filename, genome='mm10'):
+    """
+    Read hdf5 file from Cell Ranger v2 or earlier versions.
+    """
     import tables
     with tables.open_file(str(filename), 'r') as f:
         try:
@@ -133,6 +154,35 @@ def read_10x_h5(filename, genome='mm10'):
             return adata
         except tables.NoSuchNodeError:
             raise Exception('Genome %s does not exist in this file.' % genome)
+        except KeyError:
+            raise Exception('File is missing one or more required datasets.')
+
+
+def read_v3_10x_h5(filename):
+    """
+    Read hdf5 file from Cell Ranger v3 or later versions.
+    """
+    import tables
+    with tables.open_file(str(filename), 'r') as f:
+        try:
+            dsets = {}
+            for node in f.walk_nodes('/matrix', 'Array'):
+                dsets[node.name] = node.read()
+            from scipy.sparse import csr_matrix
+            M, N = dsets['shape']
+            data = dsets['data']
+            if dsets['data'].dtype == np.dtype('int32'):
+                data = dsets['data'].view('float32')
+                data[:] = dsets['data']
+            matrix = csr_matrix((data, dsets['indices'], dsets['indptr']),
+                                shape=(N, M))
+            adata = AnnData(matrix,
+                            {'obs_names': dsets['barcodes'].astype(str)},
+                            {'var_names': dsets['features']['name'].astype(str),
+                             'gene_ids': dsets['features']['id'].astype(str),
+                             'feature_types': dsets['features']['feature_type'].astype(str)})
+            logg.info(t=True)
+            return adata
         except KeyError:
             raise Exception('File is missing one or more required datasets.')
 
@@ -175,6 +225,9 @@ def read_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False, 
 
 
 def read_legacy_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
+    """
+    Read mex from output from Cell Ranger v2 or earlier versions
+    """
     adata = read(path + 'matrix.mtx', cache=cache).T  # transpose the data
     genes = pd.read_csv(path + 'genes.tsv', header=None, sep='\t')
     if var_names == 'gene_symbols':
@@ -193,6 +246,9 @@ def read_legacy_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=
 
 
 def read_v3_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
+    """
+    Read mex from output from Cell Ranger v3 or later versions
+    """
     adata = read(path + 'matrix.mtx.gz', cache=cache).T  # transpose the data
     genes = pd.read_csv(path + 'features.tsv.gz', header=None, sep='\t')
     if var_names == 'gene_symbols':
