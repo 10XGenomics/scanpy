@@ -243,7 +243,7 @@ def read_legacy_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=
         adata.var['gene_symbols'] = genes[1].values
     else:
         raise ValueError('`var_names` needs to be \'gene_symbols\' or \'gene_ids\'')
-    adata.obs_names = pd.read_csv(path + 'barcodes.tsv', header=None)[0]
+    adata.obs_names = pd.read_csv(path + '/barcodes.tsv', header=None)[0]
     return adata
 
 
@@ -265,7 +265,7 @@ def read_v3_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=Fals
     else:
         raise ValueError('`var_names` needs to be \'gene_symbols\' or \'gene_ids\'')
     adata.var['feature_types'] = genes[2].values
-    adata.obs_names = pd.read_csv(path + 'barcodes.tsv.gz', header=None)[0]
+    adata.obs_names = pd.read_csv(path + '/barcodes.tsv.gz', header=None)[0]
     return adata
 
 
