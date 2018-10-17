@@ -178,9 +178,9 @@ def read_v3_10x_h5(filename):
                                 shape=(N, M))
             adata = AnnData(matrix,
                             {'obs_names': dsets['barcodes'].astype(str)},
-                            {'var_names': dsets['features']['name'].astype(str),
-                             'gene_ids': dsets['features']['id'].astype(str),
-                             'feature_types': dsets['features']['feature_type'].astype(str)})
+                            {'var_names': dsets['name'].astype(str),
+                             'gene_ids': dsets['id'].astype(str),
+                             'feature_types': dsets['feature_type'].astype(str)})
             logg.info(t=True)
             return adata
         except KeyError:
