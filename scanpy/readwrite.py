@@ -213,7 +213,7 @@ def read_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False, 
     An :class:`~anndata.AnnData`.
     """
     path = str(path)
-    if os.path.exists(path + 'genes.tsv'):
+    if os.path.exists(path + '/genes.tsv'):
         return read_legacy_10x_mtx(path, var_names=var_names,
                                    make_unique=make_unique, cache=cache)
     else:
@@ -230,8 +230,8 @@ def read_legacy_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=
     """
     Read mex from output from Cell Ranger v2 or earlier versions
     """
-    adata = read(path + 'matrix.mtx', cache=cache).T  # transpose the data
-    genes = pd.read_csv(path + 'genes.tsv', header=None, sep='\t')
+    adata = read(path + '/matrix.mtx', cache=cache).T  # transpose the data
+    genes = pd.read_csv(path + '/genes.tsv', header=None, sep='\t')
     if var_names == 'gene_symbols':
         var_names = genes[1]
         if make_unique:
@@ -251,8 +251,8 @@ def read_v3_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=Fals
     """
     Read mex from output from Cell Ranger v3 or later versions
     """
-    adata = read(path + 'matrix.mtx.gz', cache=cache).T  # transpose the data
-    genes = pd.read_csv(path + 'features.tsv.gz', header=None, sep='\t')
+    adata = read(path + '/matrix.mtx.gz', cache=cache).T  # transpose the data
+    genes = pd.read_csv(path + '/features.tsv.gz', header=None, sep='\t')
     if var_names == 'gene_symbols':
         var_names = genes[1]
         if make_unique:
