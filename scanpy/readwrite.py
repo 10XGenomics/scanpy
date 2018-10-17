@@ -116,10 +116,11 @@ def read_10x_h5(filename, genome='mm10', gex_only=True):
         if f.__contains__('/matrix'):
             adata = read_v3_10x_h5(filename)
             if not gex_only:
-                return adata
+                return adata    # ignore the `genome` argument
             else:
-                gex_rows = list(map(lambda x: x == 'Gene Expression', adata.var['feature_types']))
-                return adata[:, gex_rows]
+                adata = adata[:, list(map(lambda x: x == 'Gene Expression', adata.var['feature_types']))]
+                adata = adata[:, list(map(lambda x: x == str(genome), adata.var['genome']))]
+                return adata
         else:
             return read_legacy_10x_h5(filename, genome=genome)
 
@@ -180,7 +181,8 @@ def read_v3_10x_h5(filename):
                             {'obs_names': dsets['barcodes'].astype(str)},
                             {'var_names': dsets['name'].astype(str),
                              'gene_ids': dsets['id'].astype(str),
-                             'feature_types': dsets['feature_type'].astype(str)})
+                             'feature_types': dsets['feature_type'].astype(str),
+                             'genome': dsets['genome'].astype(str)})
             logg.info(t=True)
             return adata
         except KeyError:
