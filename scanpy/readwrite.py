@@ -178,9 +178,9 @@ def read_v3_10x_h5(filename):
                                 shape=(N, M))
             adata = AnnData(matrix,
                             {'obs_names': dsets['barcodes'].astype(str)},
-                            {'var_names': dsets['features']['name'].astype(str),
-                             'gene_ids': dsets['features']['id'].astype(str),
-                             'feature_types': dsets['features']['feature_type'].astype(str)})
+                            {'var_names': dsets['name'].astype(str),
+                             'gene_ids': dsets['id'].astype(str),
+                             'feature_types': dsets['feature_type'].astype(str)})
             logg.info(t=True)
             return adata
         except KeyError:
@@ -215,13 +215,13 @@ def read_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False, 
         return read_legacy_10x_mtx(path, var_names=var_names,
                                    make_unique=make_unique, cache=cache)
     else:
-        ret = read_v3_10x_mtx(path, var_names=var_names,
+        adata = read_v3_10x_mtx(path, var_names=var_names,
                               make_unique=make_unique, cache=cache)
         if not gex_only:
-            return ret
+            return adata
         else:
-            gex_rows = list(map(lambda x: x == 'Gene Expression', ret.var['feature_types']))
-            return ret[:, gex_rows]
+            gex_rows = list(map(lambda x: x == 'Gene Expression', adata.var['feature_types']))
+            return adata[:, gex_rows]
 
 
 def read_legacy_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
