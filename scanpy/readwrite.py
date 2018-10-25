@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import pandas as pd
 import time
+import tables
 from pathlib import Path
 import anndata
 from anndata import AnnData, read_loom, \
@@ -97,7 +98,7 @@ def read_10x_h5(filename, genome='mm10', gex_only=True):
         Filename.
     genome : :class:`str`, optional (default: ``'mm10'``)
         Genome group in hdf5 file.
-    gex_only : :class:`bool`, optional (default: ``True``)
+    gex_only : :class:`bool`, optional (default: `True`)
         Only keep 'Gene Expression' data and ignore other feature types,
         e.g. 'Antibody Capture', 'CRISPR Guide Capture', or 'Custom'
 
@@ -111,10 +112,9 @@ def read_10x_h5(filename, genome='mm10', gex_only=True):
         The feature types are stored in `adata.var['feature_types']`
     """
     logg.info('reading', filename, r=True, end=' ')
-    import tables
     with tables.open_file(str(filename), 'r') as f:
-        if f.__contains__('/matrix'):
-            adata = read_v3_10x_h5(filename)
+        if '/matrix' in f:
+            adata = _read_v3_10x_h5(filename)
             if not gex_only:
                 return adata    # ignore the `genome` argument
             else:
@@ -122,14 +122,13 @@ def read_10x_h5(filename, genome='mm10', gex_only=True):
                 adata = adata[:, list(map(lambda x: x == str(genome), adata.var['genome']))]
                 return adata
         else:
-            return read_legacy_10x_h5(filename, genome=genome)
+            return _read_legacy_10x_h5(filename, genome=genome)
 
 
-def read_legacy_10x_h5(filename, genome='mm10'):
+def _read_legacy_10x_h5(filename, genome='mm10'):
     """
     Read hdf5 file from Cell Ranger v2 or earlier versions.
     """
-    import tables
     with tables.open_file(str(filename), 'r') as f:
         try:
             dsets = {}
@@ -159,11 +158,10 @@ def read_legacy_10x_h5(filename, genome='mm10'):
             raise Exception('File is missing one or more required datasets.')
 
 
-def read_v3_10x_h5(filename):
+def _read_v3_10x_h5(filename):
     """
     Read hdf5 file from Cell Ranger v3 or later versions.
     """
-    import tables
     with tables.open_file(str(filename), 'r') as f:
         try:
             dsets = {}
@@ -213,12 +211,12 @@ def read_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False, 
     An :class:`~anndata.AnnData`.
     """
     path = str(path)
-    if os.path.exists(path + '/genes.tsv'):
-        return read_legacy_10x_mtx(path, var_names=var_names,
-                                   make_unique=make_unique, cache=cache)
+    if os.path.exists(os.path.join(path, 'genes.tsv')):
+        return _read_legacy_10x_mtx(path, var_names=var_names,
+                                    make_unique=make_unique, cache=cache)
     else:
-        adata = read_v3_10x_mtx(path, var_names=var_names,
-                              make_unique=make_unique, cache=cache)
+        adata = _read_v3_10x_mtx(path, var_names=var_names,
+                                 make_unique=make_unique, cache=cache)
         if not gex_only:
             return adata
         else:
@@ -226,12 +224,12 @@ def read_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False, 
             return adata[:, gex_rows]
 
 
-def read_legacy_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
+def _read_legacy_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
     """
     Read mex from output from Cell Ranger v2 or earlier versions
     """
-    adata = read(path + '/matrix.mtx', cache=cache).T  # transpose the data
-    genes = pd.read_csv(path + '/genes.tsv', header=None, sep='\t')
+    adata = read(os.path.join(path, 'matrix.mtx'), cache=cache).T  # transpose the data
+    genes = pd.read_csv(os.path.join(path, 'genes.tsv'), header=None, sep='\t')
     if var_names == 'gene_symbols':
         var_names = genes[1]
         if make_unique:
@@ -243,16 +241,16 @@ def read_legacy_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=
         adata.var['gene_symbols'] = genes[1].values
     else:
         raise ValueError('`var_names` needs to be \'gene_symbols\' or \'gene_ids\'')
-    adata.obs_names = pd.read_csv(path + '/barcodes.tsv', header=None)[0]
+    adata.obs_names = pd.read_csv(os.path.join(path, 'barcodes.tsv'), header=None)[0]
     return adata
 
 
-def read_v3_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
+def _read_v3_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=False):
     """
     Read mex from output from Cell Ranger v3 or later versions
     """
-    adata = read(path + '/matrix.mtx.gz', cache=cache).T  # transpose the data
-    genes = pd.read_csv(path + '/features.tsv.gz', header=None, sep='\t')
+    adata = read(os.path.join(path, 'matrix.mtx.gz'), cache=cache).T  # transpose the data
+    genes = pd.read_csv(os.path.join(path, 'features.tsv.gz'), header=None, sep='\t')
     if var_names == 'gene_symbols':
         var_names = genes[1]
         if make_unique:
@@ -265,7 +263,7 @@ def read_v3_10x_mtx(path, var_names='gene_symbols', make_unique=True, cache=Fals
     else:
         raise ValueError('`var_names` needs to be \'gene_symbols\' or \'gene_ids\'')
     adata.var['feature_types'] = genes[2].values
-    adata.obs_names = pd.read_csv(path + '/barcodes.tsv.gz', header=None)[0]
+    adata.obs_names = pd.read_csv(os.path.join(path, 'barcodes.tsv.gz'), header=None)[0]
     return adata
 
 
