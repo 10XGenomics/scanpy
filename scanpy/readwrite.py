@@ -94,11 +94,11 @@ def read_10x_h5(filename, genome='mm10', gex_only=True):
 
     Parameters
     ----------
-    filename : :class:`str` | :class:`~pathlib.Path`
+    filename : `str` | :class:`~pathlib.Path`
         Filename.
-    genome : :class:`str`, optional (default: ``'mm10'``)
+    genome : `str`, optional (default: ``'mm10'``)
         Genome group in hdf5 file.
-    gex_only : :class:`bool`, optional (default: `True`)
+    gex_only : `bool`, optional (default: `True`)
         Only keep 'Gene Expression' data and ignore other feature types,
         e.g. 'Antibody Capture', 'CRISPR Guide Capture', or 'Custom'
 
